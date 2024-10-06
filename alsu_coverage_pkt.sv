@@ -1,0 +1,79 @@
+package alsu_coverage_pkt;
+import uvm_pkg::*;
+`include "uvm_macros.svh"
+
+import alsu_config_pkg::*;
+import alsu_seq_item_pkg::*;
+
+class alsu_coverage extends uvm_component;
+  `uvm_component_utils(alsu_coverage)
+
+  // Export and FIFO for analysis
+  uvm_analysis_export #(alsu_seq_item) cov_export;
+  uvm_tlm_analysis_fifo #(alsu_seq_item) cov_fifo;
+  alsu_seq_item seq_item_cov;
+
+  covergroup cov;
+    A_CP: coverpoint seq_item_cov.A {
+      bins a_data_0 = {0};
+      bins a_data_maxp = {3};
+      bins a_data_default = default;
+    }
+    B_CP: coverpoint seq_item_cov.B {
+      bins b_data_0 = {0};
+      bins b_data_maxp = {3};
+      bins b_data_default = default;
+    }
+    ALU_CP: coverpoint seq_item_cov.opcode {
+      bins bins_shift[] = {3'h4, 3'h5};
+      bins bins_bitwise[] = {3'b000, 3'b001};
+      illegal_bins bins_invalid = {3'h6, 3'h7};
+    }
+    a0: cross A_CP, ALU_CP;
+    C_in_CP: coverpoint seq_item_cov.cin {
+      bins cin_0 = {0};
+      bins cin_1 = {1};
+    } 
+    op_CP: coverpoint seq_item_cov.opcode {
+      bins op_0 = {3'b010};
+    }
+    a1: cross C_in_CP, op_CP;
+    Direction_CP: coverpoint seq_item_cov.direction {
+      bins dir_0 = {0};
+      bins dir_1 = {1};
+    }
+    op_CP_2: coverpoint seq_item_cov.opcode {
+      bins op_0 = {3'b100};
+      bins op_1 = {3'b101};
+    }
+    a3: cross Direction_CP, op_CP_2;
+    a4: cross A_CP, ALU_CP;
+    a5: cross B_CP, ALU_CP;
+  endgroup
+
+  function new(string name = "alsu_coverage", uvm_component parent = null);
+    super.new(name, parent);
+    cov = new(); // Ensure cov is instantiated here
+  endfunction
+
+  function void build_phase(uvm_phase phase);
+    super.build_phase(phase);
+    cov_export = new("cov_export", this);
+    cov_fifo   = new("cov_fifo", this);
+  endfunction
+	
+  function void connect_phase(uvm_phase phase);
+    super.connect_phase(phase);
+    cov_export.connect(cov_fifo.analysis_export);
+  endfunction
+
+  task run_phase(uvm_phase phase);
+    super.run_phase(phase);
+    forever begin
+      cov_fifo.get(seq_item_cov);
+      cov.sample();
+    end
+  endtask
+
+endclass
+endpackage
